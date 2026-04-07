@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portaria Rio Branco - Cloud</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        :root { --primary: #0f172a; --accent: #2563eb; --success: #16a34a; --bg: #f8fafc; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); margin: 0; padding: 10px; }
+        .container { max-width: 900px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); margin: auto; }
+        .busca-container { position: relative; margin-bottom: 20px; background: #eff6ff; padding: 15px; border-radius: 8px; border: 1px solid #bfdbfe; }
+        .sugestoes { border: 1px solid #ddd; border-radius: 8px; max-height: 200px; overflow-y: auto; display: none; background: white; position: absolute; width: calc(100% - 30px); z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .sugestao-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        @media (max-width: 600px) { .grid-form { grid-template-columns: 1fr; } }
+        label { display: block; margin-top: 10px; font-weight: 600; color: #475569; }
+        input { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
+        .btn { cursor: pointer; border: none; border-radius: 8px; padding: 15px; font-weight: bold; width: 100%; margin-top: 10px; }
+        .btn-save { background-color: var(--success); color: white; font-size: 16px; }
+        .btn-camera { background-color: #64748b; color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 25px; font-size: 13px; }
+        th { background: #f1f5f9; padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
+        .badge { background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="text-align:center; color: var(--primary);">🏢 Controle de Prestadores</h2>
+
+    <div class="busca-container">
+        <label>🔍 Pesquisar no Banco de Dados</label>
+        <input type="text" id="inputBuscaDB" placeholder="Digite o nome para buscar..." onkeyup="buscarNoBanco(this.value)">
+        <div id="listaSugestoes" class="sugestoes"></div>
+    </div>
+
+    <form id="formPortaria">
+        <div class="grid-form">
+            <div>
+                <label>Data</label>
+                <input type="date" id="dataF" required readonly>
+                <label>Nome do Prestador</label>
+                <input type="text" id="nomeF" required placeholder="Nome Completo">
+                <label>Documento (RG/CPF)</label>
+                <input type="text" id="docF" placeholder="Documento">
+            </div>
+            <div>
+                <label>Destino (Apto)</label>
+                <input type="text" id="aptoF" required placeholder="Ex: 101">
+                <label>Empresa / Motivo</label>
+                <input type="text" id="motivoF" placeholder="Ex: Internet">
+                <button type="button" class="btn btn-camera" onclick="abrirCamera()">📸 Foto Documento</button>
+            </div>
+        </div>
+
+        <input type="hidden" id="fotoBase64">
+        <div id="area-camera" style="display:none; text-align:center; margin-top:15px; background:#000; padding:10px; border-radius:10px;">
+            <video id="video" autoplay playsinline style="width:100%; max-width:300px; border-radius:5px;"></video><br>
+            <button type="button" class="btn" onclick="capturarFoto()" style="background:red; color:white; width:150px;">CAPTURAR</button>
+        </div>
+        <center><img id="fotoPreview" style="width:120px; display:none; margin:15px; border:2px solid var(--success); border-radius:8px;"></center>
+
+        <label>Autorizado por:</label>
+        <input type="text" id="autorizaF" required placeholder="Quem autorizou?">
+
+        <button type="submit" class="btn btn-save">SALVAR REGISTRO</button>
+    </form>
+
+    <div style="margin-top:40px;">
+        <h3>📋 Histórico Recente (Nuvem)</h3>
+        <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Prestador</th>
+                        <th>Apto</th>
+                        <th>PDF</th>
+                    </tr>
+                </thead>
+                <tbody id="corpoTabela"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<canvas id="canvas" style="display:none;"></canvas>
+
+<script>
+    // CONEXÃO COM SUPABASE - CHAVE E URL CORRIGIDAS
+    const S_URL = 'https://lcrksxqtviegjrjxlnza.supabase.co'.trim();
+    const S_KEY = 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjcmtzeHF0dmllZ2pyanhsbnphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjIyNDYsImV4cCI6MjA5MTEzODI0Nn0.r09Mv05qeWzLjtxXqRV0zTZwrgyAITNJL7e_ju2B2wU'.replace(/\s/g, '');
+
+    const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+    document.getElementById('dataF').valueAsDate = new Date();
+
+    async function buscarNoBanco(termo) {
+        const lista = document.getElementById('listaSugestoes');
+        if (termo.length < 3) { lista.style.display = 'none'; return; }
+        const { data } = await supabaseClient.from('registros').select('*').ilike('nome', `%${termo}%`);
+        if (data && data.length > 0) {
+            lista.innerHTML = "";
+            lista.style.display = 'block';
+            const nomesUnicos = [...new Map(data.map(item => [item.nome.toLowerCase(), item])).values()];
+            nomesUnicos.forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'sugestao-item';
+                item.innerHTML = `<span><strong>${p.nome}</strong></span> <small>Doc: ${p.doc}</small>`;
+                item.onclick = () => {
+                    document.getElementById('nomeF').value = p.nome;
+                    document.getElementById('docF').value = p.doc;
+                    document.getElementById('motivoF').value = p.motivo;
+                    lista.style.display = 'none';
+                    document.getElementById('inputBuscaDB').value = "";
+                };
+                lista.appendChild(item);
+            });
+        }
+    }
+
+    document.getElementById('formPortaria').onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector('.btn-save');
+        btn.disabled = true;
+        btn.innerText = "Salvando...";
+        
+        const registro = {
+            data: document.getElementById('dataF').value,
+            nome: document.getElementById('nomeF').value,
+            doc: document.getElementById('docF').value,
+            apto: document.getElementById('aptoF').value,
+            motivo: document.getElementById('motivoF').value,
+            autoriza: document.getElementById('autorizaF').value,
+            foto: document.getElementById('fotoBase64').value,
+            entrada: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})
+        };
+
+        const { error } = await supabaseClient.from('registros').insert([registro]);
+
+        if (error) {
+            alert("Erro ao salvar: " + error.message);
+            btn.disabled = false;
+            btn.innerText = "SALVAR REGISTRO";
+        } else {
+            alert("✅ Salvo com sucesso!");
+            location.reload();
+        }
+    };
+
+    async function carregarTabela() {
+        const { data } = await supabaseClient.from('registros').select('*').order('id', { ascending: false }).limit(15);
+        const corpo = document.getElementById('corpoTabela');
+        if (data) {
+            corpo.innerHTML = data.map(r => `
+                <tr>
+                    <td><span class="badge">${r.data.split('-').reverse().join('/')}</span><br>${r.entrada}</td>
+                    <td><strong>${r.nome}</strong></td>
+                    <td>${r.apto}</td>
+                    <td><button onclick="gerarPDF(${r.id})" style="color:blue; border:none; background:none; cursor:pointer;">📄</button></td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    async function gerarPDF(id) {
+        const { data } = await supabaseClient.from('registros').select('*').eq('id', id).single();
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.text("FICHA DE ACESSO", 105, 20, { align: "center" });
+        doc.text(`Nome: ${data.nome}`, 20, 40);
+        doc.text(`Documento: ${data.doc}`, 20, 50);
+        doc.text(`Data: ${data.data} | Hora: ${data.entrada}`, 20, 60);
+        if(data.foto) doc.addImage(data.foto, 'JPEG', 20, 70, 50, 40);
+        doc.save(`Acesso_${data.nome}.pdf`);
+    }
+
+    let stream;
+    async function abrirCamera() {
+        document.getElementById('area-camera').style.display = 'block';
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        document.getElementById('video').srcObject = stream;
+    }
+
+    function capturarFoto() {
+        const canvas = document.getElementById('canvas');
+        canvas.width = 400; canvas.height = 300;
+        canvas.getContext('2d').drawImage(document.getElementById('video'), 0, 0, 400, 300);
+        const foto = canvas.toDataURL('image/jpeg', 0.5);
+        document.getElementById('fotoBase64').value = foto;
+        document.getElementById('fotoPreview').src = foto;
+        document.getElementById('fotoPreview').style.display = 'block';
+        stream.getTracks().forEach(t => t.stop());
+        document.getElementById('area-camera').style.display = 'none';
+    }
+
+    window.onload = carregarTabela;
+</script>
+</body>
+</html>
