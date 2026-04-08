@@ -3,87 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portaria Pro - Controle de Entrada e Saída</title>
+    <title>Registro Portaria</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 15px; background-color: #e9ecef; }
-        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #007bff; margin-bottom: 20px; }
-        .field-group { position: relative; margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: 600; color: #444; }
-        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ced4da; box-sizing: border-box; font-size: 16px; }
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #333; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input, button { width: 100%; padding: 10px; margin-top: 5px; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; }
         
-        #listaSugestoes {
-            position: absolute; width: 100%; background: white; border: 1px solid #ddd;
-            border-radius: 0 0 8px 8px; z-index: 1000; max-height: 150px; overflow-y: auto; display: none;
+        /* Sistema de Sugestão */
+        .field-group { position: relative; }
+        #listaSugestoes { 
+            position: absolute; width: 100%; background: white; border: 1px solid #ccc; 
+            z-index: 1000; display: none; max-height: 150px; overflow-y: auto;
         }
         .sugestao-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; }
-        .sugestao-item:hover { background-color: #f1f1f1; }
+        .sugestao-item:hover { background-color: #f0f0f0; }
 
-        button.main-btn { width: 100%; padding: 15px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        #snapshot { width: 100%; margin-top: 10px; border-radius: 8px; display: none; border: 2px solid #ddd; }
+        button.btn-registrar { background-color: #007bff; color: white; border: none; cursor: pointer; margin-top: 20px; font-size: 16px; }
+        #snapshot { width: 100%; margin-top: 10px; border-radius: 8px; display: none; }
         
-        .tabela-container { overflow-x: auto; margin-top: 25px; }
-        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 12px; }
+        table { width: 100%; margin-top: 30px; border-collapse: collapse; background: white; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; font-size: 14px; }
         th { background-color: #007bff; color: white; }
-        
-        .btn-pdf { background-color: #dc3545; color: white; border: none; padding: 5px; border-radius: 4px; cursor: pointer; margin-bottom: 5px; width: 100%; }
-        .btn-saida { background-color: #ffc107; color: #212529; border: none; padding: 5px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
-        .img-doc { width: 45px; height: 45px; object-fit: cover; border-radius: 5px; }
-        .status-saida { color: #d9534f; font-weight: bold; font-size: 11px; }
+        .btn-pdf { background-color: #dc3545; color: white; border: none; padding: 5px; cursor: pointer; width: 100%; margin-bottom: 5px; }
+        .btn-saida { background-color: #ffc107; color: black; border: none; padding: 5px; cursor: pointer; width: 100%; font-weight: bold; }
+        .img-doc { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; }
+        .texto-saida { color: #d9534f; font-weight: bold; font-size: 12px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Portaria Pro</h2>
+    <h2>Registro de Prestadores</h2>
     
     <div class="field-group">
-        <label>Nome Completo:</label>
-        <input type="text" id="nome" placeholder="Digite para buscar..." autocomplete="off">
+        <label>Nome do Prestador:</label>
+        <input type="text" id="nome" placeholder="Digite o nome para buscar..." autocomplete="off">
         <div id="listaSugestoes"></div>
     </div>
 
-    <div class="field-group">
-        <label>Documento:</label>
-        <input type="text" id="documento" placeholder="CPF ou RG">
-    </div>
+    <label>Documento (RG/CPF):</label>
+    <input type="text" id="documento" placeholder="000.000.000-00">
 
-    <div class="field-group">
-        <label>Empresa:</label>
-        <input type="text" id="empresa" placeholder="Ex: Enel, Particular">
-    </div>
+    <label>Empresa/Serviço:</label>
+    <input type="text" id="empresa" placeholder="Ex: Enel, Refrigeração...">
 
-    <div class="field-group">
-        <label>Tipo de Serviço:</label>
-        <input type="text" id="servico" placeholder="Ex: Manutenção, Entrega">
-    </div>
+    <label>Tipo de Serviço:</label>
+    <input type="text" id="servico" placeholder="O que veio fazer?">
 
-    <div class="field-group">
-        <label>Apartamento:</label>
-        <input type="text" id="apto" placeholder="Ex: 101">
-    </div>
+    <label>Apartamento:</label>
+    <input type="text" id="apto" placeholder="Número da unidade">
 
-    <label>Foto:</label>
+    <label>Foto do Documento/Rosto:</label>
     <input type="file" id="fotoInput" accept="image/*" capture="camera">
     <img id="snapshot">
 
-    <button class="main-btn" onclick="salvarRegistro()">REGISTRAR ENTRADA</button>
+    <button class="btn-registrar" onclick="salvarRegistro()">SALVAR E GERAR REGISTRO</button>
 </div>
 
-<div class="tabela-container">
-    <table>
-        <thead>
-            <tr>
-                <th>Entrada / Nome</th>
-                <th>Foto</th>
-                <th>Ações</th>
-            </tr>
-        </thead>
-        <tbody id="corpoTabela"></tbody>
-    </table>
-</div>
+<table id="tabelaRegistros">
+    <thead>
+        <tr>
+            <th>Entrada</th>
+            <th>Nome/Unidade</th>
+            <th>Foto</th>
+            <th>Ação</th>
+        </tr>
+    </thead>
+    <tbody id="corpoTabela"></tbody>
+</table>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
@@ -106,7 +96,7 @@
     const inputNome = document.getElementById('nome');
     const listaSugestoes = document.getElementById('listaSugestoes');
 
-    // Busca automática por nome
+    // Busca automática por nome (Igual você pediu)
     inputNome.addEventListener('input', async () => {
         const valor = inputNome.value.toLowerCase();
         if (valor.length < 2) { listaSugestoes.style.display = 'none'; return; }
@@ -133,7 +123,17 @@
         listaSugestoes.style.display = encontrou ? 'block' : 'none';
     });
 
-    // Registrar Entrada
+    // Preview Foto
+    document.getElementById('fotoInput').addEventListener('change', function(e) {
+        const reader = new FileReader();
+        reader.onload = (ev) => { 
+            const img = document.getElementById('snapshot');
+            img.src = ev.target.result; img.style.display = 'block';
+        };
+        reader.readAsDataURL(e.target.files[0]);
+    });
+
+    // Salvar Registro
     window.salvarRegistro = async function() {
         const nome = document.getElementById('nome').value;
         const documento = document.getElementById('documento').value;
@@ -142,7 +142,7 @@
         const apto = document.getElementById('apto').value;
         const file = document.getElementById('fotoInput').files[0];
 
-        if (!nome || !apto) return alert("Nome e Apto são obrigatórios!");
+        if (!nome || !apto) return alert("Preencha Nome e Apto!");
 
         try {
             let url = "";
@@ -157,48 +157,41 @@
                 nome, documento, empresa, servico, apto, foto: url, entrada: agora, saida: ""
             });
 
-            // Adicionar à base de busca se não existir
+            // Atualiza base de busca
             const snapBase = await getDocs(query(collection(db, "prestadores_base")));
             let existe = false;
             snapBase.forEach(d => { if(d.data().nome === nome) existe = true; });
             if(!existe) await addDoc(collection(db, "prestadores_base"), { nome, documento, empresa });
 
-            alert("Entrada registrada!");
+            alert("Salvo com sucesso!");
             location.reload();
         } catch (e) { alert("Erro ao salvar!"); }
     }
 
     // Registrar Saída
     window.registrarSaida = async function(id) {
-        const confirmacao = confirm("Confirmar saída do prestador?");
-        if (!confirmacao) return;
-
-        try {
-            const agora = new Date().toLocaleString("pt-BR");
-            const docRef = doc(db, "registros", id);
-            await updateDoc(docRef, { saida: agora });
-            alert("Saída registrada!");
-        } catch (e) { alert("Erro ao registrar saída."); }
+        const agora = new Date().toLocaleString("pt-BR");
+        await updateDoc(doc(db, "registros", id), { saida: agora });
+        alert("Saída registrada!");
     }
 
-    // PDF Gerador
+    // PDF com TODAS as informações
     window.gerarPDF = function(d) {
         const { jsPDF } = window.jspdf;
         const docPDF = new jsPDF();
-        docPDF.setFontSize(16);
-        docPDF.text("COMPROVANTE DE ACESSO", 20, 20);
-        docPDF.setFontSize(12);
-        docPDF.text(`Prestador: ${d.nome}`, 20, 40);
+        docPDF.text("REGISTRO DE PORTARIA", 20, 20);
+        docPDF.text(`-----------------------------`, 20, 30);
+        docPDF.text(`Nome: ${d.nome}`, 20, 40);
         docPDF.text(`Documento: ${d.documento}`, 20, 50);
         docPDF.text(`Empresa: ${d.empresa}`, 20, 60);
         docPDF.text(`Serviço: ${d.servico}`, 20, 70);
-        docPDF.text(`Apartamento: ${d.apto}`, 20, 80);
-        docPDF.text(`Entrada: ${d.entrada}`, 20, 95);
-        docPDF.text(`Saída: ${d.saida || "Ainda no local"}`, 20, 105);
+        docPDF.text(`Unidade: ${d.apto}`, 20, 80);
+        docPDF.text(`Entrada: ${d.entrada}`, 20, 90);
+        docPDF.text(`Saída: ${d.saida || "Não registrada"}`, 20, 100);
         docPDF.save(`Registro_${d.nome}.pdf`);
     }
 
-    // Tabela em tempo real
+    // Atualizar Tabela
     onSnapshot(query(collection(db, "registros"), orderBy("entrada", "desc")), (s) => {
         const corpo = document.getElementById('corpoTabela');
         corpo.innerHTML = "";
@@ -206,13 +199,14 @@
             const data = ds.data();
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><b>${data.entrada.split(' ')[1]}</b><br>${data.nome}<br><small>Apto: ${data.apto}</small></td>
-                <td><img src="${data.foto || 'https://via.placeholder.com/45'}" class="img-doc"></td>
+                <td>${data.entrada}</td>
+                <td>${data.nome}<br><b>Apto: ${data.apto}</b></td>
+                <td><img src="${data.foto || 'https://via.placeholder.com/50'}" class="img-doc"></td>
                 <td>
                     <button class="btn-pdf" id="pdf-${ds.id}">PDF</button>
                     ${data.saida === "" 
                         ? `<button class="btn-saida" id="out-${ds.id}">SAÍDA</button>` 
-                        : `<span class="status-saida">Saiu às: ${data.saida.split(' ')[1]}</span>`}
+                        : `<span class="texto-saida">Saída: ${data.saida}</span>`}
                 </td>
             `;
             corpo.appendChild(tr);
