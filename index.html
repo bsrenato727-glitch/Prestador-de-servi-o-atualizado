@@ -24,7 +24,6 @@
         input { width: 100%; padding: 14px; margin-top: 6px; border-radius: 10px; border: 2px solid #e2e8f0; box-sizing: border-box; font-size: 16px; transition: 0.3s; }
         input:focus { border-color: var(--primary); outline: none; background: #eff6ff; }
         
-        /* Sugestões de Busca */
         .field-group { position: relative; }
         #listaSugestoes { 
             position: absolute; width: 100%; background: white; border: 1px solid #e2e8f0; 
@@ -36,10 +35,10 @@
 
         .btn-main { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 25px; transition: 0.2s; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2); }
         .btn-main:active { transform: scale(0.98); }
+        .btn-main:disabled { background: #94a3b8; }
         
         #snapshot { width: 100%; margin-top: 15px; border-radius: 12px; display: none; border: 3px solid #f1f5f9; }
 
-        /* Tabela Visual Estilo Card */
         .registro-card { background: white; margin-top: 15px; border-radius: 12px; padding: 15px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 5px solid var(--primary); }
         .registro-info { flex-grow: 1; }
         .registro-info b { font-size: 16px; display: block; }
@@ -90,8 +89,7 @@
     <button class="btn-main" id="btnSalvar" onclick="salvarRegistro()">REGISTRAR ENTRADA</button>
 </div>
 
-<div id="listaRegistros" style="margin-top: 20px;">
-    </div>
+<div id="listaRegistros" style="margin-top: 20px;"></div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
@@ -113,7 +111,6 @@
     const inputNome = document.getElementById('nome');
     const listaSugestoes = document.getElementById('listaSugestoes');
 
-    // BUSCA INTELIGENTE
     inputNome.addEventListener('input', async () => {
         const valor = inputNome.value.toLowerCase();
         if (valor.length < 2) { listaSugestoes.style.display = 'none'; return; }
@@ -140,7 +137,6 @@
         listaSugestoes.style.display = encontrou ? 'block' : 'none';
     });
 
-    // FOTO PREVIEW
     document.getElementById('fotoInput').addEventListener('change', function(e) {
         const reader = new FileReader();
         reader.onload = (ev) => { 
@@ -150,7 +146,6 @@
         reader.readAsDataURL(e.target.files[0]);
     });
 
-    // SALVAR
     window.salvarRegistro = async function() {
         const btn = document.getElementById('btnSalvar');
         const nome = document.getElementById('nome').value;
@@ -162,7 +157,7 @@
 
         if (!nome || !apto) return alert("Preencha Nome e Apto!");
 
-        btn.innerText = "AGUARDE...";
+        btn.innerText = "REGISTRANDO...";
         btn.disabled = true;
 
         try {
@@ -180,7 +175,6 @@
                 nome, documento, empresa, servico, apto, foto: urlFoto, entrada: dataHora, saida: ""
             });
 
-            // SALVAR NA BASE DE MEMÓRIA (CADASTRO)
             const snapB = await getDocs(query(collection(db, "prestadores_base")));
             let jaTem = false;
             snapB.forEach(d => { if(d.data().nome === nome) jaTem = true; });
@@ -191,33 +185,52 @@
         } catch (e) { alert("Erro ao salvar!"); }
     }
 
-    // SAÍDA
     window.registrarSaida = async function(id) {
         if(!confirm("Confirmar saída?")) return;
         const agora = new Date().toLocaleString("pt-BR");
         await updateDoc(doc(db, "registros", id), { saida: agora });
     }
 
-    // APAGAR REGISTRO (ERRO)
     window.apagarRegistro = async function(id) {
-        if(!confirm("⚠️ DESEJA REALMENTE EXCLUIR? Esta ação não pode ser desfeita.")) return;
+        if(!confirm("⚠️ EXCLUIR REGISTRO?")) return;
         await deleteDoc(doc(db, "registros", id));
-        alert("Registro excluído.");
     }
 
-    // PDF
-    window.gerarPDF = function(d) {
+    // PDF COM FOTO
+    window.gerarPDF = async function(d) {
         const { jsPDF } = window.jspdf;
         const docPDF = new jsPDF();
-        docPDF.text("REGISTRO DE ACESSO", 20, 20);
-        docPDF.text(`Prestador: ${d.nome}`, 20, 40);
-        docPDF.text(`Apto: ${d.apto}`, 20, 50);
-        docPDF.text(`Entrada: ${d.entrada}`, 20, 60);
-        docPDF.text(`Saída: ${d.saida || "No local"}`, 20, 70);
-        docPDF.save(`Registro_${d.nome}.pdf`);
+        
+        docPDF.setFontSize(18);
+        docPDF.text("REGISTRO DE ACESSO - PORTARIA", 20, 20);
+        docPDF.setFontSize(12);
+        docPDF.text(`Nome: ${d.nome}`, 20, 40);
+        docPDF.text(`Documento: ${d.documento || 'N/A'}`, 20, 50);
+        docPDF.text(`Apartamento: ${d.apto}`, 20, 60);
+        docPDF.text(`Empresa: ${d.empresa || 'Particular'}`, 20, 70);
+        docPDF.text(`Serviço: ${d.servico}`, 20, 80);
+        docPDF.text(`Entrada: ${d.entrada}`, 20, 90);
+        docPDF.text(`Saída: ${d.saida || "Ainda no local"}`, 20, 100);
+
+        if (d.foto) {
+            try {
+                // Função para carregar imagem no PDF
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+                img.src = d.foto;
+                img.onload = function() {
+                    docPDF.text("FOTO DO PRESTADOR:", 20, 115);
+                    docPDF.addImage(img, 'JPEG', 20, 120, 60, 60);
+                    docPDF.save(`Registro_${d.nome}.pdf`);
+                };
+            } catch (e) {
+                docPDF.save(`Registro_${d.nome}.pdf`);
+            }
+        } else {
+            docPDF.save(`Registro_${d.nome}.pdf`);
+        }
     }
 
-    // LISTA EM TEMPO REAL
     onSnapshot(query(collection(db, "registros"), orderBy("entrada", "desc")), (s) => {
         const lista = document.getElementById('listaRegistros');
         lista.innerHTML = "";
@@ -229,16 +242,17 @@
                 <img src="${d.foto || 'https://via.placeholder.com/60'}" class="img-lista">
                 <div class="registro-info">
                     <b>${d.nome}</b>
-                    <span>Apto: ${d.apto} | Entrada: ${d.entrada.split(' ')[1]}</span>
-                    ${d.saida ? `<span class="status-saiu">SAIU ÀS: ${d.saida.split(' ')[1]}</span>` : ''}
+                    <span>Apto: ${d.apto} | In: ${d.entrada.split(' ')[1]}</span>
+                    ${d.saida ? `<span class="status-saiu">OUT: ${d.saida.split(' ')[1]}</span>` : ''}
                 </div>
                 <div class="acoes">
-                    <button class="btn-acao btn-pdf" onclick='window.gerarPDF(${JSON.stringify(d)})'>PDF</button>
+                    <button class="btn-acao btn-pdf" id="pdf-${ds.id}">PDF</button>
                     ${!d.saida ? `<button class="btn-acao btn-saida" onclick="registrarSaida('${ds.id}')">SAÍDA</button>` : ''}
-                    <button class="btn-acao btn-delete" onclick="apagarRegistro('${ds.id}')" title="Apagar Registro">🗑️</button>
+                    <button class="btn-acao btn-delete" onclick="apagarRegistro('${ds.id}')">🗑️</button>
                 </div>
             `;
             lista.appendChild(card);
+            document.getElementById(`pdf-${ds.id}`).onclick = () => gerarPDF(d);
         });
     });
 </script>
