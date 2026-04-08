@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portaria Pro - Cadastro e Consulta</title>
+    <title>Portaria Pro - Cadastro Inteligente</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 15px; background-color: #e9ecef; }
@@ -11,21 +11,24 @@
         h2 { text-align: center; color: #007bff; margin-bottom: 20px; }
         .field-group { position: relative; margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: 600; color: #444; }
-        input, select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ced4da; box-sizing: border-box; font-size: 16px; }
+        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ced4da; box-sizing: border-box; font-size: 16px; }
         
-        /* Botão da Lupa */
-        .search-btn { position: absolute; right: 5px; top: 32px; background: none; border: none; font-size: 20px; cursor: pointer; color: #007bff; padding: 5px; }
-        
+        /* Lista de Sugestões */
+        #listaSugestoes {
+            position: absolute; width: 100%; background: white; border: 1px solid #ddd;
+            border-radius: 0 0 8px 8px; z-index: 1000; max-height: 150px; overflow-y: auto; display: none;
+        }
+        .sugestao-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; }
+        .sugestao-item:hover { background-color: #f1f1f1; }
+
         button.main-btn { width: 100%; padding: 15px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        button.main-btn:hover { background-color: #218838; }
-        
         #snapshot { width: 100%; margin-top: 10px; border-radius: 8px; display: none; border: 2px solid #ddd; }
         
         .tabela-container { overflow-x: auto; margin-top: 25px; }
-        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 13px; }
         th { background-color: #007bff; color: white; }
-        .btn-pdf { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .btn-pdf { background-color: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
         .img-doc { width: 45px; height: 45px; object-fit: cover; border-radius: 5px; }
     </style>
 </head>
@@ -35,46 +38,46 @@
     <h2>Sistema Portaria</h2>
     
     <div class="field-group">
-        <label>Documento (CPF/RG):</label>
-        <input type="text" id="documento" placeholder="Digite para buscar ou cadastrar">
-        <button class="search-btn" onclick="buscarPrestador()" title="Buscar prestador">🔍</button>
+        <label>Nome Completo:</label>
+        <input type="text" id="nome" placeholder="Comece a digitar o nome..." autocomplete="off">
+        <div id="listaSugestoes"></div>
     </div>
 
     <div class="field-group">
-        <label>Nome Completo:</label>
-        <input type="text" id="nome" placeholder="Nome do prestador">
+        <label>Documento (CPF/RG):</label>
+        <input type="text" id="documento" placeholder="Documento do prestador">
     </div>
 
     <div class="field-group">
         <label>Empresa:</label>
-        <input type="text" id="empresa" placeholder="Ex: Enel, Vivo, Particular">
+        <input type="text" id="empresa" placeholder="Ex: Enel, Particular">
     </div>
 
     <div class="field-group">
         <label>Tipo de Serviço:</label>
-        <input type="text" id="servico" placeholder="Ex: Manutenção Elétrica, Entrega">
+        <input type="text" id="servico" placeholder="Ex: Pintura, Entrega">
     </div>
 
     <div class="field-group">
         <label>Apartamento Destino:</label>
-        <input type="text" id="apto" placeholder="Ex: 101, 1902, Portaria">
+        <input type="text" id="apto" placeholder="Ex: 101, Portaria">
     </div>
 
     <label>Foto:</label>
     <input type="file" id="fotoInput" accept="image/*" capture="camera">
     <img id="snapshot">
 
-    <button class="main-btn" onclick="salvarRegistro()">REGISTRAR ENTRADA</button>
+    <button class="main-btn" onclick="salvarRegistro()">REGISTRAR E GERAR PDF</button>
 </div>
 
 <div class="tabela-container">
-    <table id="tabelaRegistros">
+    <table>
         <thead>
             <tr>
-                <th>Data</th>
-                <th>Nome/Apto</th>
+                <th>Data/Hora</th>
+                <th>Nome / Apto</th>
                 <th>Foto</th>
-                <th>Ação</th>
+                <th>Ações</th>
             </tr>
         </thead>
         <tbody id="corpoTabela"></tbody>
@@ -83,7 +86,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, query, where, getDocs, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, query, getDocs, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
     import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-storage.js";
 
     const firebaseConfig = {
@@ -99,31 +102,49 @@
     const db = getFirestore(app);
     const storage = getStorage(app);
 
-    // --- FUNÇÃO BUSCAR (LUPA) ---
-    window.buscarPrestador = async function() {
-        const docBusca = document.getElementById('documento').value;
-        if(!docBusca) return alert("Digite o documento para buscar!");
+    const inputNome = document.getElementById('nome');
+    const listaSugestoes = document.getElementById('listaSugestoes');
 
-        const q = query(collection(db, "prestadores_base"), where("documento", "==", docBusca));
-        const querySnapshot = await getDocs(q);
+    // --- BUSCA DINÂMICA ENQUANTO DIGITA ---
+    inputNome.addEventListener('input', async () => {
+        const valor = inputNome.value.toLowerCase();
+        if (valor.length < 2) { listaSugestoes.style.display = 'none'; return; }
 
-        if (!querySnapshot.empty) {
-            const dados = querySnapshot.docs[0].data();
-            document.getElementById('nome').value = dados.nome;
-            document.getElementById('empresa').value = dados.empresa;
-            alert("Prestador encontrado! Dados preenchidos.");
-        } else {
-            alert("Prestador não encontrado no cadastro base.");
-        }
-    }
+        const q = query(collection(db, "prestadores_base"));
+        const snap = await getDocs(q);
+        
+        listaSugestoes.innerHTML = "";
+        let encontrou = false;
 
-    // Prévia da imagem
+        snap.forEach(doc => {
+            const prestador = doc.data();
+            if (prestador.nome.toLowerCase().includes(valor)) {
+                encontrou = true;
+                const div = document.createElement('div');
+                div.className = 'sugestao-item';
+                div.innerText = prestador.nome;
+                div.onclick = () => {
+                    document.getElementById('nome').value = prestador.nome;
+                    document.getElementById('documento').value = prestador.documento;
+                    document.getElementById('empresa').value = prestador.empresa;
+                    listaSugestoes.style.display = 'none';
+                };
+                listaSugestoes.appendChild(div);
+            }
+        });
+
+        listaSugestoes.style.display = encontrou ? 'block' : 'none';
+    });
+
+    // Fechar lista se clicar fora
+    document.addEventListener('click', (e) => { if (e.target !== inputNome) listaSugestoes.style.display = 'none'; });
+
+    // Foto Preview
     document.getElementById('fotoInput').addEventListener('change', function(e) {
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = (ev) => { 
             const img = document.getElementById('snapshot');
-            img.src = event.target.result;
-            img.style.display = 'block';
+            img.src = ev.target.result; img.style.display = 'block';
         };
         reader.readAsDataURL(e.target.files[0]);
     });
@@ -137,69 +158,69 @@
         const apto = document.getElementById('apto').value;
         const file = document.getElementById('fotoInput').files[0];
 
-        if (!nome || !apto) return alert("Nome e Apartamento são obrigatórios!");
+        if (!nome || !apto) return alert("Preencha Nome e Apto!");
 
         try {
-            let urlFoto = "";
+            let url = "";
             if (file) {
                 const sRef = ref(storage, `fotos/${Date.now()}_${file.name}`);
                 await uploadBytes(sRef, file);
-                urlFoto = await getDownloadURL(sRef);
+                url = await getDownloadURL(sRef);
             }
 
-            // Salva o registro de entrada
+            const dataAtual = new Date().toLocaleString("pt-BR");
+
+            // 1. Salva a entrada atual
             await addDoc(collection(db, "registros"), {
-                nome, documento, empresa, servico, apto, foto: urlFoto, data: new Date().toLocaleString()
+                nome, documento, empresa, servico, apto, foto: url, data: dataAtual
             });
 
-            // Salva/Atualiza na base de prestadores para a lupa achar depois
-            const qBase = query(collection(db, "prestadores_base"), where("documento", "==", documento));
-            const snapBase = await getDocs(qBase);
-            if(snapBase.empty && documento) {
+            // 2. Salva na base de dados para a busca automática futura (se for novo)
+            const snapBase = await getDocs(query(collection(db, "prestadores_base")));
+            let jaExiste = false;
+            snapBase.forEach(d => { if(d.data().nome === nome) jaExiste = true; });
+            
+            if(!jaExiste) {
                 await addDoc(collection(db, "prestadores_base"), { nome, documento, empresa });
             }
 
-            alert("Entrada registrada!");
+            alert("Registro Concluído!");
             location.reload();
-        } catch (e) { console.error(e); alert("Erro ao salvar!"); }
+        } catch (e) { alert("Erro ao salvar!"); }
     }
 
-    // --- GERAR PDF ---
-    window.gerarPDF = function(dados) {
+    // --- PDF COMPLETO ---
+    window.gerarPDF = function(d) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
-        doc.setFontSize(20);
-        doc.text("Comprovante de Entrada", 20, 20);
-        doc.setFontSize(12);
-        doc.text(`Data: ${dados.data}`, 20, 40);
-        doc.text(`Prestador: ${dados.nome}`, 20, 50);
-        doc.text(`Documento: ${dados.documento}`, 20, 60);
-        doc.text(`Empresa: ${dados.empresa}`, 20, 70);
-        doc.text(`Serviço: ${dados.servico}`, 20, 80);
-        doc.text(`Destino: Apto ${dados.apto}`, 20, 90);
-        doc.text(`__________________________`, 20, 110);
-        doc.text(`Assinatura Portaria`, 20, 115);
-
-        doc.save(`registro_${dados.nome}.pdf`);
+        doc.setFillColor(0, 123, 255); doc.rect(0, 0, 210, 30, 'F');
+        doc.setTextColor(255, 255, 255); doc.setFontSize(18);
+        doc.text("COMPROVANTE DE ACESSO - PORTARIA", 15, 20);
+        doc.setTextColor(0); doc.setFontSize(12);
+        doc.text(`DATA/HORA: ${d.data}`, 15, 50);
+        doc.text(`PRESTADOR: ${d.nome}`, 15, 60);
+        doc.text(`DOCUMENTO: ${d.documento || "N/I"}`, 15, 70);
+        doc.text(`EMPRESA: ${d.empresa || "N/I"}`, 15, 80);
+        doc.text(`SERVIÇO: ${d.servico}`, 15, 90);
+        doc.text(`DESTINO: APTO ${d.apto}`, 15, 100);
+        doc.save(`Recibo_${d.nome}.pdf`);
     }
 
-    // Carregar Tabela
-    const qTable = query(collection(db, "registros"), orderBy("data", "desc"));
-    onSnapshot(qTable, (snap) => {
+    // Atualizar Tabela
+    onSnapshot(query(collection(db, "registros"), orderBy("data", "desc")), (s) => {
         const corpo = document.getElementById('corpoTabela');
         corpo.innerHTML = "";
-        snap.forEach(docSnap => {
-            const d = docSnap.data();
+        s.forEach(ds => {
+            const data = ds.data();
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${d.data.split(' ')[0]}</td>
-                <td>${d.nome}<br><small>Apto: ${d.apto}</small></td>
-                <td><img src="${d.foto || 'https://via.placeholder.com/45'}" class="img-doc"></td>
-                <td><button class="btn-pdf" id="btn-${docSnap.id}">PDF</button></td>
+                <td>${data.data}</td>
+                <td>${data.nome}<br><b>Apto: ${data.apto}</b></td>
+                <td><img src="${data.foto || 'https://via.placeholder.com/45'}" class="img-doc"></td>
+                <td><button class="btn-pdf" id="pdf-${ds.id}">PDF</button></td>
             `;
             corpo.appendChild(tr);
-            document.getElementById(`btn-${docSnap.id}`).onclick = () => gerarPDF(d);
+            document.getElementById(`pdf-${ds.id}`).onclick = () => gerarPDF(data);
         });
     });
 </script>
