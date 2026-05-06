@@ -93,7 +93,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, query, getDocs, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, query, getDocs, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyDgsGwJDm4kRlpTxJ8ZOt4VjU8Iy_Ahztg",
@@ -172,7 +172,8 @@
 
             const dataHora = new Date().toLocaleString("pt-BR");
             await addDoc(collection(db, "registros"), {
-                nome, documento, empresa, servico, apto, foto: urlFoto, entrada: dataHora, saida: ""
+                nome, documento, empresa, servico, apto, foto: urlFoto, entrada: dataHora, saida: "",
+                timestamp: serverTimestamp() // Adicionado para ordenação correta
             });
 
             const snapB = await getDocs(query(collection(db, "prestadores_base")));
@@ -196,7 +197,6 @@
         await deleteDoc(doc(db, "registros", id));
     }
 
-    // PDF COM FOTO
     window.gerarPDF = async function(d) {
         const { jsPDF } = window.jspdf;
         const docPDF = new jsPDF();
@@ -214,7 +214,6 @@
 
         if (d.foto) {
             try {
-                // Função para carregar imagem no PDF
                 const img = new Image();
                 img.crossOrigin = "Anonymous";
                 img.src = d.foto;
@@ -223,15 +222,12 @@
                     docPDF.addImage(img, 'JPEG', 20, 120, 60, 60);
                     docPDF.save(`Registro_${d.nome}.pdf`);
                 };
-            } catch (e) {
-                docPDF.save(`Registro_${d.nome}.pdf`);
-            }
-        } else {
-            docPDF.save(`Registro_${d.nome}.pdf`);
-        }
+            } catch (e) { docPDF.save(`Registro_${d.nome}.pdf`); }
+        } else { docPDF.save(`Registro_${d.nome}.pdf`); }
     }
 
-    onSnapshot(query(collection(db, "registros"), orderBy("entrada", "desc")), (s) => {
+    // Ordenação alterada para "timestamp"
+    onSnapshot(query(collection(db, "registros"), orderBy("timestamp", "desc")), (s) => {
         const lista = document.getElementById('listaRegistros');
         lista.innerHTML = "";
         s.forEach(ds => {
